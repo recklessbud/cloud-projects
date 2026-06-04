@@ -70,7 +70,7 @@ data "aws_ami" "amazon_linux_2" {
   most_recent = true
   filter {
     name   = "name"
-    values = ["amzn-ami-hvm-*-x86_64-gp2"]
+    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
   }
 
   filter {
@@ -95,16 +95,16 @@ resource "aws_kms_key" "session_manager" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "Enable IAM user permissions"
+        Sid    = "EnableIAMUserPermissions"
         Effect = "Allow"
         Principal = {
           AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
         }
-        Action   = "kms:"
+        Action   = "kms:*"
         Resource = "*"
       },
       {
-        Sid    = "Allow cloudwatch logs"
+        Sid    = "AllowCloudwatchLogs"
         Effect = "Allow"
         Principal = {
           Service = "logs.${data.aws_region.current.name}.amazonaws.com"
@@ -119,7 +119,7 @@ resource "aws_kms_key" "session_manager" {
         Resource = "*"
       },
       {
-        Sid    = "Allow S3 service"
+        Sid    = "AllowS3Service"
         Effect = "Allow"
         Principal = {
           Service = "s3.amazonaws.com"
@@ -130,6 +130,18 @@ resource "aws_kms_key" "session_manager" {
           "kms:ReEncrypt*",
           "kms:GenerateDataKey*",
           "kms:DescribeKey"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowCloudTrail"
+        Effect = "Allow"
+        Principal = {
+          Service = "cloudtrail.amazonaws.com"
+        }
+        Action = [
+          "kms:GenerateDataKey",
+          "kms:DecryptDataKey"
         ]
         Resource = "*"
       }
@@ -237,14 +249,12 @@ resource "aws_iam_role" "session_manager_instance_role" {
 # Attach AWS managed policy 
 resource "aws_iam_policy_attachment" "session_manager_instance_role_policy" {
   name       = "session-manager-instance-role-policy-${local.resource_suffix}"
-  roles      = aws_iam_role.session_manager_instance_role.name
+  roles      = [aws_iam_role.session_manager_instance_role.name]
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
 # policy for cloudwatch logs
 resource "aws_iam_role_policy" "cloudwatch_logs_policy" {
-  name  = "CloudWatchLogsPolicy-${local.resource_suffix}"
-  count = var.enable_logging ? 1 : 0
 
   role = aws_iam_role.session_manager_instance_role.id
   policy = jsonencode({
@@ -259,7 +269,7 @@ resource "aws_iam_role_policy" "cloudwatch_logs_policy" {
           "logs:DescribeLogGroups",
           "logs:DescribeLogStreams"
         ]
-        Resource = aws_cloudwatch_log_group.session_logs[0].arn
+        Resource = aws_cloudwatch_log_group.session_manager[0].arn
       },
       {
         Effect = "Allow"
@@ -300,8 +310,8 @@ resource "aws_iam_instance_profile" "session_manager_instance_profile" {
 # security group for ec2 instances
 
 resource "aws_security_group" "session_manager_security_group" {
-  name   = "session-manager-security-group-${local.resource_suffix}"
-  vpc_id = aws_vpc.SSM_vpc.id
+  name        = "session-manager-security-group-${local.resource_suffix}"
+  vpc_id      = aws_vpc.SSM_vpc.id
   description = "Security group for Session Manager demo instances"
 
   egress {
@@ -317,39 +327,38 @@ resource "aws_security_group" "session_manager_security_group" {
 }
 
 resource "aws_instance" "session_manager_demo" {
-  ami                     = data.aws_ami.amazon_linux_2.id
-  instance_type           = var.instance_type
-  subnet_id               = aws_subnet.SSM_subnet.id
+  ami                         = data.aws_ami.amazon_linux_2.id
+  instance_type               = var.instance_type
+  subnet_id                   = aws_subnet.SSM_subnet.id
   associate_public_ip_address = true
-  iam_instance_profile    = aws_iam_instance_profile.session_manager_instance_profile.name
-  security_groups         = [aws_security_group.session_manager_security_group.id]
-  disable_api_termination = false
+  iam_instance_profile        = aws_iam_instance_profile.session_manager_instance_profile.name
+  vpc_security_group_ids      = [aws_security_group.session_manager_security_group.id] # fix 1
+  disable_api_termination     = false
 
-  user_data = base64encode(<<-EOF
+  # fix 2 — no base64encode() wrapper
+  user_data = <<-EOF
     #!/bin/bash
     yum update -y
-    yum install -y amazon-ssm-agent
     systemctl enable amazon-ssm-agent
     systemctl start amazon-ssm-agent
-    
-    # Install additional useful tools
+
+    # Install additional tools
     yum install -y htop nano tree
-    
-    # Create a welcome message
-    echo "Session Manager Demo Instance" > /etc/motd
-    echo "Access this instance securely using AWS Session Manager" >> /etc/motd
-    echo "No SSH keys or open ports required!" >> /etc/motd
+
+    chmod +rw /etc/motd
+    echo "Session Manager Demo Instance"                        > /etc/motd
+    echo "Access this instance using AWS Session Manager"      >> /etc/motd
+    echo "No SSH keys or open ports required!"                 >> /etc/motd
   EOF
-  )
 
-
+  # force re-run user_data when it changes
+  user_data_replace_on_change = true
 
   root_block_device {
     volume_size           = 8
     encrypted             = true
     delete_on_termination = true
     volume_type           = "gp3"
-
   }
 
   tags = {
@@ -367,7 +376,7 @@ resource "aws_iam_policy" "session_manager_access_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "Start session"
+        Sid    = "StartSession"
         Effect = "Allow"
         Action = [
           "ssm:StartSession"
@@ -382,7 +391,7 @@ resource "aws_iam_policy" "session_manager_access_policy" {
         }
       },
       {
-        Sid    = "Describe instances"
+        Sid    = "DescribeInstances"
         Effect = "Allow"
         Action = [
           "ssm:DescribeInstanceInformation",
@@ -392,7 +401,7 @@ resource "aws_iam_policy" "session_manager_access_policy" {
         Resource = "*"
       },
       {
-        Sid    = "Get parameters"
+        Sid    = "GetParameters"
         Effect = "Allow"
         Action = [
           "ssm:DescribeDocumentParameters",
@@ -407,6 +416,7 @@ resource "aws_iam_policy" "session_manager_access_policy" {
           "ssm:TerminateSession",
           "ssm:ResumeSession"
         ]
+        Resource = "*"
       }
     ]
   })
@@ -431,7 +441,7 @@ resource "aws_ssm_document" "session_manager_prefs" {
       s3BucketName                = aws_s3_bucket.session_logs[0].id
       s3KeyPrefix                 = var.s3_log_prefix
       s3EncryptionEnabled         = true
-      cloudWatchLogGroupName      = aws_cloudwatch_log_group.session_logs[0].name
+      cloudWatchLogGroupName      = aws_cloudwatch_log_group.session_manager[0].name
       cloudWatchEncryptionEnabled = true
       cloudWatchStreamingEnabled  = true
       kmsKeyId                    = aws_kms_key.session_manager[0].key_id
@@ -470,12 +480,7 @@ resource "aws_cloudtrail" "session_manager" {
 
     data_resource {
       type   = "AWS::S3::Object"
-      values = ["arn:aws:s3:::*/*"]
-    }
-
-    data_resource {
-      type   = "AWS::SSM::Session"
-      values = ["arn:aws:ssm:*:*:session/*"]
+      values = ["arn:aws:s3:::${aws_s3_bucket.session_logs[0].id}/"]
     }
   }
 
@@ -521,6 +526,15 @@ resource "aws_s3_bucket_policy" "cloudtrail_logging" {
             "AWS:SourceArn" = "arn:aws:cloudtrail:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:trail/session-manager-trail-${local.resource_suffix}"
           }
         }
+      },
+      {
+        Sid    = "AWSCloudTrailLookup"
+        Effect = "Allow"
+        Principal = {
+          Service = "cloudtrail.amazonaws.com"
+        }
+        Action   = "s3:ListBucket"
+        Resource = aws_s3_bucket.session_logs[0].arn
       }
     ]
   })
