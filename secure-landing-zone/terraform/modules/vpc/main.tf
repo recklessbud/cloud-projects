@@ -1,6 +1,8 @@
 # main config for vpc
 
 
+data "aws_caller_identity" "current" {}
+
 resource "aws_vpc" "SLZ_vpc" {
     cidr_block = var.vpc_cidr_block
     enable_dns_hostnames = true
@@ -140,6 +142,84 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "SLZ_flow_logs_buc
 }
 
 
+
+
+resource "aws_iam_role" "flow_logs_role" {
+  name = "${var.project_name}-flow-logs-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "vpc-flow-logs.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+# ccloudtrail
+
+# resource "aws_iam_role" "cloudtrail_role" {
+#   name = "${var.project_name}-cloudtrail-role"
+#   assume_role_policy = jsonencode({
+#     Version = "2012-10-17"
+#     Statement = [
+#       {
+#         Effect = "Allow"
+#         Principal = {
+#           Service = "cloudtrail.amazonaws.com"
+#         }
+#         Action = "sts:AssumeRole"
+#       }
+#     ]
+#   })
+
+#   tags = {
+#     Name = "${var.project_name}-cloudtrail-role"
+#   }
+# }
+
+
+data "aws_iam_policy_document" "cloudtrial_policy" {
+  statement {
+    sid = "AWSCloudTrailAclCheck"
+    effect = "Allow"
+
+    principals {
+      type = "Service"
+      identifiers = [ "cloudtrail.amazonaws.com" ]
+    }
+    actions = [
+      "s3:GetBucketAcl"
+    ]
+
+    resources = [ 
+      aws_s3_bucket.SLZ_flow_logs_bucket.arn
+     ]
+  }
+
+  statement {
+    sid = "AWSCloudTrailWrite"
+    effect = "Allow"
+
+    principals {
+      type = "Service"
+      identifiers = [ "cloudtrail.amazonaws.com" ]
+    }
+    actions = ["s3:PutObject"]
+    resources = [ "${aws_s3_bucket.SLZ_flow_logs_bucket.arn}/AWSLogs/${data.aws_caller_identity.current.account_id}/*" ]
+
+    condition {
+      test = "StringEquals"
+      variable = "s3:x-amz-acl"
+      values = ["bucket-owner-full-control"]
+    }
+  }
+}
+
 resource "aws_s3_bucket_public_access_block" "SLZ_flow_logs_bucket_access_block" {
     bucket = aws_s3_bucket.SLZ_flow_logs_bucket.id
     block_public_acls = true
@@ -147,3 +227,128 @@ resource "aws_s3_bucket_public_access_block" "SLZ_flow_logs_bucket_access_block"
     ignore_public_acls = true
     restrict_public_buckets = true
 }
+
+data "aws_iam_policy_document" "cloudtrail_bucket_policy" {
+  statement {
+    sid    = "AWSCloudTrailAclCheck"
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["cloudtrail.amazonaws.com"]
+    }
+
+    actions   = ["s3:GetBucketAcl"]
+    resources = [aws_s3_bucket.SLZ_flow_logs_bucket.arn]
+  }
+
+  statement {
+    sid    = "AWSCloudTrailWrite"
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["cloudtrail.amazonaws.com"]
+    }
+
+    actions = ["s3:PutObject"]
+    resources = [
+      "${aws_s3_bucket.SLZ_flow_logs_bucket.arn}/AWSLogs/${data.aws_caller_identity.current.account_id}/*"
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "s3:x-amz-acl"
+      values   = ["bucket-owner-full-control"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "cloudtrail_logging" {
+  bucket     = aws_s3_bucket.SLZ_flow_logs_bucket.id
+  policy     = data.aws_iam_policy_document.cloudtrail_bucket_policy.json
+  depends_on = [aws_s3_bucket_public_access_block.SLZ_flow_logs_bucket_access_block]
+}
+
+resource "aws_cloudwatch_log_group" "cloudtrail_logs" {
+  name              = "/aws/cloudtrail/${var.project_name}"
+  retention_in_days = 7
+
+  tags = {
+    Name = "${var.project_name}-cloudtrail-logs"
+  }
+}
+
+resource "aws_iam_role" "cloudtrail_cloudwatch_role" {
+  name = "${var.project_name}-cloudtrail-cw-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "cloudtrail.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "cloudtrail_cloudwatch_policy" {
+  name = "${var.project_name}-cloudtrail-cw-policy"
+  role = aws_iam_role.cloudtrail_cloudwatch_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ]
+      Resource = "${aws_cloudwatch_log_group.cloudtrail_logs.arn}:*"
+    }]
+  })
+}
+
+resource "aws_cloudtrail" "cloudtrail_logging" {
+  name                          = "${var.project_name}-trail"
+  s3_bucket_name                = aws_s3_bucket.SLZ_flow_logs_bucket.id
+  is_multi_region_trail         = true
+  include_global_service_events = true
+  enable_log_file_validation    = true
+  enable_logging                = true
+
+  cloud_watch_logs_group_arn = "${aws_cloudwatch_log_group.cloudtrail_logs.arn}:*"
+  cloud_watch_logs_role_arn  = aws_iam_role.cloudtrail_cloudwatch_role.arn
+
+  event_selector {
+    read_write_type           = "All"
+    include_management_events = true
+
+    data_resource {
+      type   = "AWS::S3::Object"
+      values = ["arn:aws:s3:::"]
+    }
+  }
+
+  depends_on = [aws_s3_bucket_policy.cloudtrail_logging]
+
+  tags = {
+    Name = "${var.project_name}-trail"
+  }
+}
+
+
+
+# aws managed permission policy
+# resource "aws_iam_role_policy_attachment" "cloudtrail_role_attachment" {
+#   role = aws_iam_role.cloudtrail_role.name
+#   policy_arn = "arn:aws:iam::aws:policy/CloudTrailServiceRolePolicy"
+  
+# }
+
+
+# resource "aws_iam_role_policy" "cloudtrail_policy" {
+#   name = "${var.project_name}-cloudtrail-policy"
+#   role = aws_iam_role.cloudtrail_role.id
+#   policy = data.aws_iam_policy_document.cloudtrial_policy.json
+# }
