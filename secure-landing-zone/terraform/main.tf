@@ -25,3 +25,17 @@ module "security" {
 
   allowed_ssh_cidr = var.allowed_ssh_cidr
 }
+
+
+
+
+module "guardduty" {
+  source = "./modules/guard-duty"
+
+  aws_region = var.aws_region
+
+  SNS_topic_name = var.SNS_topic_name
+  alert_email    = var.alert_email
+
+  project_name = var.project_name
+}

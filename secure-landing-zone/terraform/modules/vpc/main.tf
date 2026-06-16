@@ -352,3 +352,5 @@ resource "aws_cloudtrail" "cloudtrail_logging" {
 #   role = aws_iam_role.cloudtrail_role.id
 #   policy = data.aws_iam_policy_document.cloudtrial_policy.json
 # }
+
+# enable guardduty

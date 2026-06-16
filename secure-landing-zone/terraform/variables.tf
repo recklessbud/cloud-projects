@@ -104,3 +104,18 @@ variable "allowed_ssh_cidr" {
     error_message = "Must be a valid CIDR"
   }
 }
+
+
+
+variable "alert_email" {
+  description = "alert email"
+  type        = string
+  default     = "bureck400@gmail.com"
+}
+
+
+variable "SNS_topic_name" {
+  description = "topic name"
+  type        = string
+  default     = "guardduty-alerts"
+}

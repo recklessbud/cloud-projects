@@ -2,4 +2,4 @@
 - Cloudtrail
 - secure Landing zone
 - SCPs
--GuardDuty
+- GuardDuty
