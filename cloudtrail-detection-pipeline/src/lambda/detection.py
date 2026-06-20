@@ -27,13 +27,11 @@ def lambda_handler(event, context):
 
         for records in decompressed.get('Records', []):
             try:
-                event_name = records['eventName']
-                event_source = records['eventSource']
-
-                if is_suspicious(event_name, event_source):
-                    message = build_alert(records)
-                    send_alert(message, 'Suspicious activity detected')
-                    logger.info(f"""Alert sent for {event_name} ({event_source})""")
+                suspicious, reason = is_suspicious(records)
+                if suspicious:
+                    message = build_alert(records, reason)
+                    send_alert(message, f"Alert {reason}")
+                    logger.info(f"""Alert sent for event: {records['eventName']} from {records['sourceIPAddress']}""")
             except Exception as e:
                 logger.error(f"Error processing record: {e}")
 
@@ -54,20 +52,40 @@ def download_log(bucket, key):
 
 
 def decompress_log(content):
-    decompressed = gzip.decompress(content)
-    return json.loads(decompressed)
+    if not content:
+        return {'Records': []}
+    try:
+        decompressed = gzip.decompress(content)
+        return json.loads(decompressed)
+    except Exception as e:
+        logger.error(f"Error decompressing log: {e}")
+        return {'Records': []}
 
 
-def is_suspicious(event_name, event_source):
+def is_suspicious(record):
+    event_name = record.get('eventName', '')
+    user_type  = record.get('userIdentity', {}).get('type', '')
+    error_code = record.get('errorCode', '')
+    mfa_used   = record.get('additionalEventData', {}).get('MFAUsed', 'Yes')
+
     if event_name in SUSPICIOUS_ACTIONS:
-        return True
+        return True, f"Suspicious action: {event_name}"
 
-    return False
+    if user_type == 'Root':
+        return True, "Root account activity detected"
+
+    if event_name == 'ConsoleLogin' and mfa_used == 'No':
+        return True, "Console login without MFA"
+
+    if error_code == 'AccessDenied':
+        return True, f"Access denied on {event_name} — possible probing"
+
+    return False, None
 
 
-def build_alert(record):
+def build_alert(record, reason='Suspicious activity detected'):
     return (
-        f"Suspicious activity detected!\n"
+        f"{reason}\n"
         f"Time: {record['eventTime']}\n"
         f"Event: {record['eventName']} ({record['eventSource']})\n"
         f"User: {record['userIdentity'].get('arn', 'unknown')}\n"
