@@ -121,8 +121,8 @@ resource "aws_flow_log" "SLZ_vpc_flow_logs" {
     vpc_id = aws_vpc.SLZ_vpc.id
 
     depends_on = [ 
-        aws_s3_bucket_server_side_encryption_configuration.SLZ_flow_logs_bucket_encryption,
-        aws_s3_bucket_public_access_block.SLZ_flow_logs_bucket_access_block
+        aws_s3_bucket_server_side_encryption_configuration.SLZ_flow_logs_bucket_encryption
+        # aws_s3_bucket_public_access_block.SLZ_flow_logs_bucket_access_block
      ]
 }
 
@@ -220,13 +220,13 @@ data "aws_iam_policy_document" "cloudtrial_policy" {
   }
 }
 
-resource "aws_s3_bucket_public_access_block" "SLZ_flow_logs_bucket_access_block" {
-    bucket = aws_s3_bucket.SLZ_flow_logs_bucket.id
-    block_public_acls = true
-    block_public_policy = true
-    ignore_public_acls = true
-    restrict_public_buckets = true
-}
+# resource "aws_s3_bucket_public_access_block" "SLZ_flow_logs_bucket_access_block" {
+#     bucket = aws_s3_bucket.SLZ_flow_logs_bucket.id
+#     block_public_acls = true
+#     block_public_policy = true
+#     ignore_public_acls = true
+#     restrict_public_buckets = true
+# }
 
 data "aws_iam_policy_document" "cloudtrail_bucket_policy" {
   statement {
@@ -267,7 +267,7 @@ data "aws_iam_policy_document" "cloudtrail_bucket_policy" {
 resource "aws_s3_bucket_policy" "cloudtrail_logging" {
   bucket     = aws_s3_bucket.SLZ_flow_logs_bucket.id
   policy     = data.aws_iam_policy_document.cloudtrail_bucket_policy.json
-  depends_on = [aws_s3_bucket_public_access_block.SLZ_flow_logs_bucket_access_block]
+  # depends_on = [aws_s3_bucket_public_access_block.SLZ_flow_logs_bucket_access_block]
 }
 
 resource "aws_cloudwatch_log_group" "cloudtrail_logs" {

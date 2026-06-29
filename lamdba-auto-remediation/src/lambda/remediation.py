@@ -119,7 +119,7 @@ def remediate_security_groups(sg_id):
     logger.info(f"Checking security group: {sg_id}")
 
     try:
-        response =  ec2_client.describe_security_groups(GroupsIds=[sg_id])
+        response =  ec2_client.describe_security_groups(GroupIds=[sg_id])
         sg       = response['SecurityGroups'][0]
         sg_name  = sg['GroupName']
         revoked  = []
@@ -135,7 +135,7 @@ def remediate_security_groups(sg_id):
                 if cidr in ['0.0.0.0/0', '::/0'] and from_port in [22, 3389]:
                     logger.info(f"Revoking port {from_port} on {sg_id}")
 
-                    ec2_client.revoke_secrity_group_ingress(GroupId=sg_id, InPermissions=[rule])
+                    ec2_client.revoke_security_group_ingress(GroupId=sg_id, IpPermissions=[rule])
 
                     revoked.append({
                         'port': from_port,
