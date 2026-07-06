@@ -3,3 +3,4 @@
 - secure Landing zone
 - SCPs
 - GuardDuty
+- AWS Config
