@@ -23,6 +23,12 @@ resource "aws_guardduty_detector" "EDS_GuardDuty" {
 }
 
 
+# resource "aws_guardduty_organization_configuration" "EDS_GuardDuty" {
+#   auto_enable = true
+#   detector_id = aws_guardduty_detector.EDS_GuardDuty.id
+# }
+
+
 
 resource "aws_cloudwatch_event_rule" "guardduty_findings" {
   name        = "${local.resource_suffix}-guardduty-findings"

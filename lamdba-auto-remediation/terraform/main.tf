@@ -19,7 +19,6 @@ resource "aws_guardduty_detector" "remediation_guardduty" {
   }
 }
 
-# ── EventBridge — GuardDuty findings ─────────────────
 resource "aws_cloudwatch_event_rule" "guardduty_findings" {
   name        = "${var.project_name}-guardduty-${local.resource_suffix}"
   description = "Capture GuardDuty medium and high findings"
@@ -28,7 +27,7 @@ resource "aws_cloudwatch_event_rule" "guardduty_findings" {
     source      = ["aws.guardduty"]
     detail-type = ["GuardDuty Finding"]
     detail = {
-      severity = [{ numeric = [">=", 4] }] # ← fixed
+      severity = [{ numeric = [">=", 4] }]
     }
   })
 
