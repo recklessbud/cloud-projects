@@ -59,6 +59,9 @@ resource "aws_s3_bucket_lifecycle_configuration" "logs_lifecycle" {
   bucket = aws_s3_bucket.CDP_bucket.id
 
   rule {
+    abort_incomplete_multipart_upload {
+    days_after_initiation = 7
+  }
     id     = "archive-logs"
     status = "Enabled"
     filter {
@@ -172,6 +175,7 @@ resource "aws_lambda_function" "detector" {
   memory_size      = 128
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
 
+  code_signing_config_arn = aws_lambda_code_signing_config.detector_func.arn
   environment {
     variables = {
       SNS_TOPIC_ARN      = aws_sns_topic.detection_logs.arn
@@ -182,6 +186,20 @@ resource "aws_lambda_function" "detector" {
 
 }
 
+resource "aws_lambda_code_signing_config" "detector_func" {
+  allowed_publishers {
+    signing_profile_version_arns = [aws_signer_signing_profile.detector_profile.arn]
+  }
+  policies {
+    untrusted_artifact_on_deployment = "Enforce"
+  }
+}
+
+
+resource "aws_signer_signing_profile" "detector_profile" {
+  name = "detector_profile-${local.resource_suffix}"
+  platform_id = "AWSLambda-SHA384-ECDSA"
+}
 resource "aws_lambda_permission" "s3_invoke" {
   statement_id  = "AllowS3Invoke"
   action        = "lambda:InvokeFunction"

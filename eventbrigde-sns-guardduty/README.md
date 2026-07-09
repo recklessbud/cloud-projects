@@ -76,7 +76,7 @@ checkov -d . --framework terraform
 
 ## Testing the pipeline
  
-### Option 1 — Generate GuardDuty sample findings
+### enerate GuardDuty sample findings
  
 ```bash
 # get your detector ID
