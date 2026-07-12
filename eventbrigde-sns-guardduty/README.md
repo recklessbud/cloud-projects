@@ -91,7 +91,7 @@ After 15 mins, GuardDuty will publish the finding. EventBridge will route it to 
 
 
 ### Architecture
-[Architecture](./asset/archi.png)
+![Architecture](./asset/archi.png)
 
 
 ### Cleanup

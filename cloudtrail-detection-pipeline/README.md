@@ -12,7 +12,7 @@ This project implements a serverless, event-driven audit monitoring pipeline tha
 ---
 
 ### Architecture
-[simple-architectural-diagram](./src/assets/diagram.png)
+![simple-architectural-diagram](./src/assets/diagram.png)
 
 
 ---
@@ -86,7 +86,7 @@ Some checkov findings after the first scan include;
 
 ### sample email
 Change my IP signed into the console
-[email-notification](./src/assets/evidence.png)
+![email-notification](./src/assets/evidence.png)
 
 
 ---
