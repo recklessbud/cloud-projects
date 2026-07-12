@@ -9,7 +9,7 @@ Cloud security findings from Amazon GuardDuty and AWS Config often require manua
 
 ---
 ### Architecture
-[simple architecture](./src/assests/archi.png)
+![simple architecture](./src/assests/archi.png)
 
 ---
 ### Tools / AWS services Used
@@ -75,7 +75,7 @@ Solution:
 
 
 ### sample email
-[remediated-alert](./src/assests/image.png)
+![remediated-alert](./src/assests/image.png)
 
 
 ---
