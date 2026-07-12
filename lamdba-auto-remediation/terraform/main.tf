@@ -94,7 +94,7 @@ resource "aws_cloudwatch_event_target" "scheduled_to_lambda" {
 # ── SNS topic ─────────────────────────────────────────
 resource "aws_sns_topic" "remediation_alerts" {
   name              = "${var.project_name}-sns-topic-${local.resource_suffix}"
-  kms_master_key_id = "alias/aws/sns"
+  kms_master_key_id = "/alias/aws/sns"
 
   tags = {
     Name = "${var.project_name}-remediation-alerts"
