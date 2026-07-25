@@ -45,7 +45,7 @@ resource "aws_eip" "SLZ_eip" {
 
 
 resource "aws_route_table" "fargate_vpc_rt" {
-  vpc_id = aws_vpc.SLZ_vpc.id
+  vpc_id = aws_vpc.fargate_vpc.id
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.fargate_vpc_igw.id

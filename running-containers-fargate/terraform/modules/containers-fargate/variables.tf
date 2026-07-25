@@ -23,6 +23,9 @@ variable "subnet_ids"{
     type = list(string)
 }
 
+variable "container_image" {
+  type = string
+}
 variable "enable_ecr_scan" {
     type = bool
 }
@@ -43,4 +46,30 @@ variable "execution_role_arn" {
 
 variable "task_role_arn"{
     type = string
+}
+
+variable "container_port"{
+    type = number
+}
+
+
+
+variable "health_check_path" {
+    type = string
+}
+
+
+
+variable "ecs_log_group_name" {
+    type = string
+}
+
+
+variable "desired_count" {
+    type = number
+}
+
+
+variable "fargate_security_group" {
+  type = string
 }

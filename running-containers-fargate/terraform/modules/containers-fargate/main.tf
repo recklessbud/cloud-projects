@@ -12,11 +12,11 @@ data "aws_caller_identity" "current" {}
 
 locals {
   # Use provided subnet IDs or default subnets
-  subnet_ids = length(var.subnet_ids) > 0 ? var.subnet_ids : data.aws_subnets.default[0].ids
+  subnet_ids = var.subnet_ids
   
   # Resource naming with random suffix
   cluster_name     = "${var.project_name}-${random_password.suffix.result}"
-  repository_name  = "${var.project_name}-app-${random_password.suffix.result}"
+  repository_name  = "${var.project_name}-app-repo"
   service_name     = "${var.project_name}-service"
   task_family      = "${var.project_name}-task"
   execution_role_name = "ecsTaskExecutionRole-${random_password.suffix.result}"
@@ -77,7 +77,7 @@ resource "aws_ecs_cluster" "fargate_cluster" {
     name = local.cluster_name
 
     setting {
-        name = "ContainerInsights"
+        name = "containerInsights"
         value = "enabled"
     }
 
@@ -115,5 +115,79 @@ resource "aws_ecs_task_definition" "fargate_task_definition" {
 
     container_definitions = jsonencode([{
         name = "${var.project_name}-container"
+        image  = "301301200252.dkr.ecr.us-east-1.amazonaws.com/running-containers-fargate-app-repo:latest"
+        portMappings = [
+          {
+            containerPort = 3000
+            protocol = "tcp"
+          }
+        ]
+
+        essential = true
+
+        healthCheck = {
+        command = [
+          "CMD-SHELL",
+          "curl -f http://localhost:3000/health || exit 1"
+         ]
+        interval    = 30
+        timeout     = 5
+        retries     = 3
+        startPeriod = 60
+      }
+
+
+        logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = var.ecs_log_group_name
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "ecs"
+        }
+      }
+        tags = {
+            Name = local.task_family
+        }
     }])
+}
+
+
+
+# ECS service
+resource "aws_ecs_service" "fargate_service" {
+    name = local.service_name
+    cluster = aws_ecs_cluster.fargate_cluster.id
+    task_definition = aws_ecs_task_definition.fargate_task_definition.arn
+    desired_count = var.desired_count
+    launch_type = "FARGATE"
+    
+  
+    enable_execute_command = true
+
+
+    network_configuration {
+      subnets  = local.subnet_ids
+
+      security_groups = [
+        var.fargate_security_group
+      ]
+
+      assign_public_ip = true
+    }
+
+
+    # deployment_configuration {
+    #   maximum_percent = 200
+    #   minimum_healthy_percent = 100
+    # }
+    
+    wait_for_steady_state = true
+    health_check_grace_period_seconds = 60
+
+
+    depends_on = [aws_ecs_cluster_capacity_providers.fargate_cluster_capacity]
+
+  tags = {
+    Name = local.service_name
+  }
 }
