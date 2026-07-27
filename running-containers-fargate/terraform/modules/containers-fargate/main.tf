@@ -26,7 +26,7 @@ locals {
 # ECR repository for the app
 resource "aws_ecr_repository" "fargate_repo" {
     name =  local.repository_name
-    image_tag_mutability = "MUTABLE"
+    image_tag_mutability = "IMMUTABLE"
     force_delete = true
     image_scanning_configuration {
         scan_on_push = var.enable_ecr_scan
@@ -115,7 +115,8 @@ resource "aws_ecs_task_definition" "fargate_task_definition" {
 
     container_definitions = jsonencode([{
         name = "${var.project_name}-container"
-        image  = "301301200252.dkr.ecr.us-east-1.amazonaws.com/running-containers-fargate-app-repo:latest"
+        # image = "nginx:latest"
+        image  ="301301200252.dkr.ecr.us-east-1.amazonaws.com/running-containers-fargate-app-repo:latest"
         portMappings = [
           {
             containerPort = 3000
@@ -128,7 +129,8 @@ resource "aws_ecs_task_definition" "fargate_task_definition" {
         healthCheck = {
         command = [
           "CMD-SHELL",
-          "curl -f http://localhost:3000/health || exit 1"
+          # "echo ok",
+        "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:3000/health')\" || exit 1"
          ]
         interval    = 30
         timeout     = 5
