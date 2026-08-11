@@ -49,7 +49,7 @@ variable "task_memory" {
 variable "container_port" {
   description = "container port"
   type        = number
-  default     = 3000
+  default     = 80
 }
 
 

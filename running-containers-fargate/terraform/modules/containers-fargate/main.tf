@@ -115,11 +115,10 @@ resource "aws_ecs_task_definition" "fargate_task_definition" {
 
     container_definitions = jsonencode([{
         name = "${var.project_name}-container"
-        # image = "nginx:latest"
-        image  ="301301200252.dkr.ecr.us-east-1.amazonaws.com/running-containers-fargate-app-repo:latest"
+        image = var.container_image
         portMappings = [
           {
-            containerPort = 3000
+            containerPort = var.container_port
             protocol = "tcp"
           }
         ]
