@@ -32,6 +32,17 @@ variable "vpc_cidr_block" {
 }
 
 
+variable "allowed_cidr_blocks" {
+  description = "CIDR blocks allowed to access the container port"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+
+  validation {
+    condition     = length(var.allowed_cidr_blocks) > 0
+    error_message = "At least one CIDR block must be specified"
+  }
+}
+
 
 variable "public_subnets_cidr" {
   description = "public subnets"
@@ -47,16 +58,16 @@ variable "public_subnets_cidr" {
 }
 
 
-variable "allowed_cidr_blocks" {
-  description = "CIDR blocks allowed to access the container port"
-  type        = list(string)
-  default     = ["0.0.0.0/0"]
+# variable "allowed_cidr_blocks" {
+#   description = "CIDR blocks allowed to access the container port"
+#   type        = list(string)
+#   default     = ["0.0.0.0/0"]
 
-  validation {
-    condition     = length(var.allowed_cidr_blocks) > 0
-    error_message = "At least one CIDR block must be specified"
-  }
-}
+#   validation {
+#     condition     = length(var.allowed_cidr_blocks) > 0
+#     error_message = "At least one CIDR block must be specified"
+#   }
+# }
 
 # container and fargate configs
 variable "container_image" {
@@ -108,7 +119,7 @@ variable "cluster_name" {
 variable "service_name" {
   description = "ECS service name"
   type        = string
-  default     = ""
+  default     = "fargate-service"
 }
 
 variable "desired_count" {
@@ -121,7 +132,7 @@ variable "desired_count" {
 variable "task_definition_family" {
   description = "ECS task definition name"
   type        = string
-  default     = ""
+  default     = "task-family"
 }
 
 variable "platform_version" {
