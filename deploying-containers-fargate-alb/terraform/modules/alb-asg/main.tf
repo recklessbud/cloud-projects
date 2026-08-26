@@ -4,7 +4,7 @@ resource "random_string" "suffix" {
   upper = false
 }
 
-resource "aws_alb" "fargate_alb" {
+resource "aws_lb" "fargate_alb" {
   name =  "${var.alb_name}-${random_string.suffix.result}"
   internal = var.alb_internal
   load_balancer_type = "application"
@@ -66,7 +66,7 @@ resource "aws_appautoscaling_target" "ecs_target" {
 
   max_capacity       = var.max_capacity
   min_capacity       = var.min_capacity
-  resource_id        = "service/${aws_ecs_cluster.fargate_cluster.name}/${aws_ecs_service.fargate_service.name}"
+  resource_id        = "service/${var.ecs_cluster}/${var.ecs_service}"
   scalable_dimension = "ecs:service:DesiredCount"
   service_namespace  = "ecs"
 

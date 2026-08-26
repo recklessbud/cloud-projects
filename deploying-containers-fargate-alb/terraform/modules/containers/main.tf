@@ -7,7 +7,7 @@ resource "random_string" "suffix" {
 
 # ECR repository
 resource "aws_ecr_repository" "ecr_repository" {
-  name = "${var.project_name}-${random_string.suffix.result}"
+  name = "fargate-serverless-repo-${random_string.suffix.result}"
   image_tag_mutability = var.ecr_image_tag_mutability
   image_scanning_configuration {
     scan_on_push = var.ecr_scan_on_push
@@ -69,7 +69,7 @@ resource "aws_ecs_cluster" "ecs_cluster" {
 }
 
 
-resource "aws_ecs_cluster_capacity_provider" "ecs_cluster_capacity_provider" {
+resource "aws_ecs_cluster_capacity_providers" "ecs_cluster_capacity_provider" {
   cluster_name = aws_ecs_cluster.ecs_cluster.name
   capacity_providers =  var.enable_fargate_spot ? ["FARGATE", "FARGATE_SPOT"] : ["FARGATE"]
   default_capacity_provider_strategy {
@@ -102,12 +102,12 @@ resource "aws_ecs_task_definition" "ecs_task_definition" {
   container_definitions = jsonencode([
     {
         name = "fargate-demo-container"
-        image = var.container_image
-        essential = cpu_target_value
+        image = "301301200252.dkr.ecr.us-east-1.amazonaws.com/fargate-serverless-repo-5um975dv"
+        essential = true
 
         portMappings = [
             {
-                containerPort = var.container_port
+                containerPort = 3000
                 protocol = "tcp"
             }
         ]
@@ -128,12 +128,12 @@ resource "aws_ecs_task_definition" "ecs_task_definition" {
         }
       }
 
-
+      essential= true
 
        healthCheck = {
         command = [
           "CMD-SHELL",
-          "curl -f http://localhost:${var.container_port}${var.health_check_path} || exit 1"
+          "wget -q -o /dev/null  http://localhost:${var.container_port}${var.health_check_path} || exit 1"
         ]
         interval    = var.health_check_interval
         timeout     = var.health_check_timeout
@@ -165,7 +165,7 @@ resource "aws_ecs_service" "ecs_service" {
   load_balancer {
     target_group_arn = var.alb_target_group_arn
     container_name = "fargate-demo-container"
-    container_port = var.container_port
+    container_port = 3000
   }
 
   health_check_grace_period_seconds = var.health_check_grace_period

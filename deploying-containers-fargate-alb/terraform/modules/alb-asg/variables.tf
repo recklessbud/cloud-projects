@@ -88,3 +88,12 @@ variable "cpu_target_value" {
 variable "memory_target_value" {
   type = number
 }
+
+
+variable "ecs_service" {
+  type = string
+}
+
+variable "ecs_cluster" {
+  type = string
+}

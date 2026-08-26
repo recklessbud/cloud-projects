@@ -7,3 +7,5 @@ tfplan
 
 .venv
 *.zip
+
+node_modules

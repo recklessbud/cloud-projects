@@ -19,6 +19,9 @@ variable "cluster_name"{
     type = string
 }
 
+variable "cpu_target_value" {
+  type = string
+}
 variable "fargate_weight" {
   type = number
 }
