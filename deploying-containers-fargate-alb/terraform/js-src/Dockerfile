@@ -13,7 +13,7 @@ COPY package*.json ./
 RUN npm ci --only=production && npm cache clean --force
 
 # Copy application code
-COPY src/index.js .
+COPY src .
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \

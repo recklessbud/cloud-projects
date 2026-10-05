@@ -102,7 +102,7 @@ resource "aws_ecs_task_definition" "ecs_task_definition" {
   container_definitions = jsonencode([
     {
         name = "fargate-demo-container"
-        image = "301301200252.dkr.ecr.us-east-1.amazonaws.com/fargate-serverless-repo-5um975dv"
+        image = "301301200252.dkr.ecr.us-east-1.amazonaws.com/fargate-serverless-repo-8wclgzy1:latest"
         essential = true
 
         portMappings = [
@@ -133,7 +133,8 @@ resource "aws_ecs_task_definition" "ecs_task_definition" {
        healthCheck = {
         command = [
           "CMD-SHELL",
-          "wget -q -o /dev/null  http://localhost:${var.container_port}${var.health_check_path} || exit 1"
+          "wget -q -O /dev/null http://127.0.0.1:${var.container_port}${var.health_check_path} || exit 1"
+          # "wget -q -o /dev/null  http://localhost:${var.container_port} || exit 1"
         ]
         interval    = var.health_check_interval
         timeout     = var.health_check_timeout

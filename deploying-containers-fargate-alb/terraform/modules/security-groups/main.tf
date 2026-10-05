@@ -12,11 +12,19 @@ resource "aws_security_group" "alb" {
   vpc_id      = var.vpc_id
 
   ingress {
+    from_port   = 3000
+    to_port     = 3000
+    protocol    = "tcp"
+    cidr_blocks = var.allowed_cidr_blocks
+  
+  }
+
+  ingress {
+    description = "HTTP"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = var.allowed_cidr_blocks
-  
   }
 
   ingress {
@@ -48,8 +56,8 @@ resource "aws_security_group" "fargate_tasks" {
     vpc_id = var.vpc_id
 
     ingress {
-        from_port = var.container_port
-        to_port = var.container_port
+        from_port = 3000
+        to_port = 3000
         protocol = "tcp"
         security_groups = [aws_security_group.alb.id]
     }
@@ -67,6 +75,13 @@ resource "aws_security_group" "fargate_tasks" {
         protocol = "tcp"
         cidr_blocks = var.allowed_cidr_blocks
     }
+
+    # egress {
+    #     from_port = 3000
+    #     to_port = 3000
+    #     protocol = "tcp"
+    #     cidr_blocks = var.allowed_cidr_blocks
+    # }
 
     tags = {
         Name = "${var.fargate_service}-sg-${random_string.suffix.result}"
