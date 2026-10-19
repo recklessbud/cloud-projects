@@ -145,6 +145,8 @@ resource "azurerm_network_security_group" "database" {
 }
 
 
+
+
 resource "azurerm_network_security_rule" "database_allow_backend" {
   name                        = "allow-backend"
   priority                    = 1000
@@ -187,3 +189,33 @@ resource "azurerm_subnet_network_security_group_association" "database" {
     azurerm_network_security_rule.database_allow_backend
   ]
 }
+
+
+# applications security groups
+
+resource "azurerm_application_security_group" "backend" {
+  name = "asg-${var.backend_subnet_name}"
+  resource_group_name = azurerm_resource_group.main.name
+  location = azurerm_resource_group.main.location
+
+  tags = merge(local.common_tags, {
+    resource_type = "application-security-group"
+    tier          = "Backend"
+    description   = "ASG for backend servers"
+  })
+}
+
+
+
+resource "azurerm_application_security_group" "database" {
+
+  name = "asg-${var.database_subnet_name}"
+  resource_group_name = azurerm_resource_group.main.name
+  location = azurerm_resource_group.main.location
+
+  tags = merge(local.common_tags, {
+    resource_type = "application-security-group"
+    tier          = "Database"
+    description   = "ASG for database servers"
+  })
+ }
