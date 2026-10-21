@@ -166,3 +166,21 @@ variable "use_random_suffix" {
   type        = bool
   default     = true
 }
+
+
+variable "vm_size" {
+  description = "The size of the virtual machine"
+  type        = string
+  default     = "Standard_D2lds_v6"
+}
+
+variable "admin_username" {
+  type    = string
+  default = "azureadmin"
+}
+
+variable "admin_ssh_public_key" {
+  type        = string
+  description = "SSH public key for VM access"
+}
+

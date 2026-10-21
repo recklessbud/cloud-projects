@@ -99,7 +99,7 @@ resource "azurerm_network_security_rule" "frontend_allow_web" {
   source_port_range           = "*"
   destination_port_range      = var.frontend_allowed_ports[count.index]
   source_address_prefix       = "*"
-  destination_address_prefix  = "*"
+  destination_application_security_group_ids = [azurerm_application_security_group.frontend.id]
   resource_group_name         = azurerm_resource_group.main.name
   network_security_group_name = azurerm_network_security_group.frontend.name
 }
@@ -125,8 +125,8 @@ resource "azurerm_network_security_rule" "backend_allow_frontend" {
   protocol                    = "Tcp"
   source_port_range           = "*"
   destination_port_range      = var.backend_app_port
-  source_address_prefix       = var.frontend_subnet_address_prefix
-  destination_address_prefix  = "*"
+  source_application_security_group_ids       = [azurerm_application_security_group.frontend.id]
+  destination_application_security_group_ids  = [azurerm_application_security_group.backend.id]
   resource_group_name         = azurerm_resource_group.main.name
   network_security_group_name = azurerm_network_security_group.backend.name
 }
@@ -155,8 +155,8 @@ resource "azurerm_network_security_rule" "database_allow_backend" {
   protocol                    = "Tcp"
   source_port_range           = "*"
   destination_port_range      = var.database_port
-  source_address_prefix       = var.backend_subnet_address_prefix
-  destination_address_prefix  = "*"
+  source_application_security_group_ids       = [azurerm_application_security_group.backend.id]
+  destination_application_security_group_ids = [ azurerm_application_security_group.database.id]
   resource_group_name         = azurerm_resource_group.main.name
   network_security_group_name = azurerm_network_security_group.database.name
 }
@@ -193,8 +193,21 @@ resource "azurerm_subnet_network_security_group_association" "database" {
 
 # applications security groups
 
+resource "azurerm_application_security_group" "frontend" {
+  name = "asg-${var.frontend_subnet_name}-${random_id.suffix.hex}"
+  resource_group_name = azurerm_resource_group.main.name
+  location = azurerm_resource_group.main.location
+
+  tags = merge(local.common_tags, {
+    resource_type = "application-security-group"
+    tier          = "Backend"
+    description   = "ASG for frontend servers"
+  })
+}
+
+
 resource "azurerm_application_security_group" "backend" {
-  name = "asg-${var.backend_subnet_name}"
+  name = "asg-${var.backend_subnet_name}-${random_id.suffix.hex}"
   resource_group_name = azurerm_resource_group.main.name
   location = azurerm_resource_group.main.location
 
@@ -209,7 +222,7 @@ resource "azurerm_application_security_group" "backend" {
 
 resource "azurerm_application_security_group" "database" {
 
-  name = "asg-${var.database_subnet_name}"
+  name = "asg-${var.database_subnet_name}-${random_id.suffix.hex}"
   resource_group_name = azurerm_resource_group.main.name
   location = azurerm_resource_group.main.location
 
@@ -219,3 +232,165 @@ resource "azurerm_application_security_group" "database" {
     description   = "ASG for database servers"
   })
  }
+
+
+
+# create NIC for vms to connect to vnet
+resource "azurerm_network_interface" "frontend" {
+  name                = "nic-${var.frontend_subnet_name}-${random_id.suffix.hex}"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+
+  ip_configuration {
+    name                          = "ip-config-${var.frontend_subnet_name}"
+    subnet_id                     = azurerm_subnet.frontend.id
+    private_ip_address_allocation = "Dynamic"
+  }
+}
+
+resource "azurerm_network_interface" "backend" {
+  name                = "nic-${var.backend_subnet_name}-${random_id.suffix.hex}"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+
+  ip_configuration {
+    name                          = "ip-config-${var.backend_subnet_name}"
+    subnet_id                     = azurerm_subnet.backend.id
+    private_ip_address_allocation = "Dynamic"
+  }
+}
+
+
+resource "azurerm_network_interface" "database" {
+  name                = "nic-${var.database_subnet_name}-${random_id.suffix.hex}"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+
+  ip_configuration {
+    name                          = "ip-config-${var.database_subnet_name}"
+    subnet_id                     = azurerm_subnet.database.id
+    private_ip_address_allocation = "Dynamic"
+  }
+}
+
+
+# Virtual machines
+
+resource "azurerm_linux_virtual_machine" "frontend" {
+  name                = "vm-${var.frontend_subnet_name}-${random_id.suffix.hex}"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  size                = "Standard_D2nlds_v6"
+  admin_username      = "azureuser"
+
+  network_interface_ids = [
+    azurerm_network_interface.frontend.id
+  ]
+
+  disable_password_authentication = true
+
+  admin_ssh_key {
+    username   = "azureuser"
+    public_key = var.admin_ssh_public_key
+  }
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+  }
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "0001-com-ubuntu-server-jammy"
+    sku       = "22_04-lts-gen2"
+    version   = "latest"
+  }
+
+  tags = local.common_tags
+}
+resource "azurerm_network_interface_application_security_group_association" "frontend" {
+  network_interface_id          = azurerm_network_interface.frontend.id
+  application_security_group_id = azurerm_application_security_group.frontend.id
+}
+
+
+
+resource "azurerm_linux_virtual_machine" "backend" {
+  name                = "vm-${var.backend_subnet_name}-${random_id.suffix.hex}"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  size                = "Standard_F1als_v7"
+  admin_username      = "azureuser2"
+
+  network_interface_ids = [
+    azurerm_network_interface.backend.id
+  ]
+
+  disable_password_authentication = true
+
+  admin_ssh_key {
+    username   = "azureuser2"
+    public_key = var.admin_ssh_public_key
+  }
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+  }
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "0001-com-ubuntu-server-jammy"
+    sku       = "22_04-lts-gen2"
+    version   = "latest"
+  }
+
+  tags = local.common_tags
+}
+
+
+resource "azurerm_network_interface_application_security_group_association" "backend" {
+  network_interface_id          = azurerm_network_interface.backend.id
+  application_security_group_id = azurerm_application_security_group.backend.id
+}
+
+
+
+resource "azurerm_linux_virtual_machine" "database" {
+  name                = "vm-${var.database_subnet_name}-${random_id.suffix.hex}"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  size                = "Standard_F1als_v7"
+  admin_username      = "azureuser3"
+
+  network_interface_ids = [
+    azurerm_network_interface.database.id
+  ]
+
+  disable_password_authentication = true
+
+  admin_ssh_key {
+    username   = "azureuser3"
+    public_key = var.admin_ssh_public_key
+  }
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+  }
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "0001-com-ubuntu-server-jammy"
+    sku       = "22_04-lts-gen2"
+    version   = "latest"
+  }
+
+  tags = local.common_tags
+}
+
+
+resource "azurerm_network_interface_application_security_group_association" "databse" {
+  network_interface_id          = azurerm_network_interface.database.id
+  application_security_group_id = azurerm_application_security_group.database.id
+}
